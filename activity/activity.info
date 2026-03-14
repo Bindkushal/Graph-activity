@@ -1,0 +1,11 @@
+[Activity]
+name = GraphIt
+summary = Learn X/Y coordinates by plotting points and drawing shapes on a graph
+activity_version = 1
+bundle_id = org.sugarlabs.GraphIt
+exec = sugar-activity3 activity.GraphIt
+icon = activity-graphit
+license = GPLv3+
+tags = math;game;graph;coordinates;geometry;learning
+url = https://github.com/Bindkushal/graph-activity
+repository = https://github.com/Bindkushal/graph-activity.git
