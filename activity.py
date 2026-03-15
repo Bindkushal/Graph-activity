@@ -20,112 +20,19 @@ from sugar3.activity.widgets import ActivityToolbarButton, StopButton
 from sugar3.graphics.toolbutton import ToolButton
 from sugar3.graphics.toggletoolbutton import ToggleToolButton
 
-
-# ── Challenge definitions ─────────────────────────────────────────────────────
-# Each challenge has: name, description, hint, points (empty = free draw)
-# points are the TARGET coordinates the student must plot
-
-CHALLENGES = {
-    "Triangles": [
-        {
-            "name": "Right Triangle",
-            "description": "Plot 3 points to form a right-angled triangle.",
-            "hint": "One angle must be exactly 90°. Try corners at (0,0), (4,0), (0,3)",
-            "points": [(0, 0), (4, 0), (0, 3), (0, 0)],
-            "fact": "A right triangle has one 90° angle. Used in Pythagoras theorem: a²+b²=c²",
-        },
-        {
-            "name": "Isosceles Triangle",
-            "description": "Plot a triangle where two sides are equal length.",
-            "hint": "Make it symmetric! Try (0,5), (-3,0), (3,0)",
-            "points": [(0, 5), (-3, 0), (3, 0), (0, 5)],
-            "fact": "Isosceles triangles have two equal sides and two equal base angles.",
-        },
-        {
-            "name": "Equilateral Triangle",
-            "description": "Plot a triangle where all three sides are equal!",
-            "hint": "All sides equal, all angles 60°. Try (0,4), (-3,-2), (3,-2)",
-            "points": [(0, 4), (-3, -2), (3, -2), (0, 4)],
-            "fact": "All sides equal, all angles are 60°. The most symmetric triangle!",
-        },
-        {
-            "name": "Scalene Triangle",
-            "description": "Plot a triangle where all three sides are different lengths.",
-            "hint": "Try (0,5), (-4,-2), (2,-3) — all sides different!",
-            "points": [(0, 5), (-4, -2), (2, -3), (0, 5)],
-            "fact": "A scalene triangle has no equal sides and no equal angles.",
-        },
-    ],
-    "Quadrilaterals": [
-        {
-            "name": "Square",
-            "description": "Plot 4 points to make a perfect square.",
-            "hint": "All sides equal, all angles 90°. Try (-3,-3), (3,-3), (3,3), (-3,3)",
-            "points": [(-3, -3), (3, -3), (3, 3), (-3, 3), (-3, -3)],
-            "fact": "A square has 4 equal sides and 4 right angles.",
-        },
-        {
-            "name": "Rectangle",
-            "description": "Plot a rectangle — opposite sides equal, all angles 90°.",
-            "hint": "Try (-5,-2), (5,-2), (5,2), (-5,2)",
-            "points": [(-5, -2), (5, -2), (5, 2), (-5, 2), (-5, -2)],
-            "fact": "A rectangle has 4 right angles but sides can have different lengths.",
-        },
-        {
-            "name": "Parallelogram",
-            "description": "Plot a shape where opposite sides are parallel.",
-            "hint": "Shift the top row: (-3,-2), (3,-2), (5,2), (-1,2)",
-            "points": [(-3, -2), (3, -2), (5, 2), (-1, 2), (-3, -2)],
-            "fact": "A parallelogram has 2 pairs of parallel sides. Opposite angles are equal.",
-        },
-        {
-            "name": "Rhombus",
-            "description": "A diamond shape — all 4 sides equal!",
-            "hint": "Try (0,4), (3,0), (0,-4), (-3,0)",
-            "points": [(0, 4), (3, 0), (0, -4), (-3, 0), (0, 4)],
-            "fact": "A rhombus is like a squished square — all sides equal but angles vary.",
-        },
-    ],
-    "Stars & Polygons": [
-        {
-            "name": "5-Point Star",
-            "description": "Draw a classic 5-pointed star!",
-            "hint": "Connect outer and inner points alternately around the center.",
-            "points": [
-                (0, 5), (1, 2), (4, 2), (2, 0), (3, -3),
-                (0, -1), (-3, -3), (-2, 0), (-4, 2), (-1, 2), (0, 5)
-            ],
-            "fact": "Stars appear in flags of over 35 countries!",
-        },
-        {
-            "name": "Regular Pentagon",
-            "description": "Plot a 5-sided polygon with equal sides.",
-            "hint": "5 points evenly spaced in a circle. Use the ghost as guide!",
-            "points": [
-                (0, 5), (5, 2), (3, -4), (-3, -4), (-5, 2), (0, 5)
-            ],
-            "fact": "A regular pentagon has interior angles of 108° each.",
-        },
-        {
-            "name": "Hexagon",
-            "description": "Plot a 6-sided regular hexagon.",
-            "hint": "Think of a honeycomb cell. Points at: (0,4),(3,2),(3,-2),(0,-4),(-3,-2),(-3,2)",
-            "points": [
-                (0, 4), (3, 2), (3, -2), (0, -4), (-3, -2), (-3, 2), (0, 4)
-            ],
-            "fact": "Hexagons are the most efficient shape for tiling — used by bees in honeycombs!",
-        },
-    ],
-    "Free Draw": [
-        {
-            "name": "Free Draw",
-            "description": "No task — plot any points you like and create your own shape!",
-            "hint": "Your imagination is the limit. Try making your name with dots!",
-            "points": [],
-            "fact": "",
-        },
-    ],
-}
+# ── Logic layer ───────────────────────────────────────────────────────────────
+# All pure-Python data and math lives in logic/__init__.py.
+# activity.py is the GTK shell only.
+from logic import (
+    CHALLENGES,
+    GRID_CELLS,
+    PointHistory,
+    compute_step,
+    grid_to_screen,
+    screen_to_grid,
+    validate_coord,
+    check_completion,
+)
 
 
 class GraphIt(activity.Activity):
@@ -135,14 +42,15 @@ class GraphIt(activity.Activity):
         activity.Activity.__init__(self, handle)
 
         # ── state ─────────────────────────────────────────────────────────
-        self.plotted_points = []
+        self.history = PointHistory()       # logic layer owns the point list
         self.current_challenge = None
         self.connect_mode = False
         self.hover_point = None
+        # These are updated each draw cycle via compute_step()
         self._step = 40
-        self._cx = 400
-        self._cy = 300
-        self._cells = 10
+        self._cx   = 400
+        self._cy   = 300
+        self._cells = GRID_CELLS
 
         self._setup_css()
         self._create_toolbar()
@@ -288,13 +196,16 @@ class GraphIt(activity.Activity):
         self.canvas = Gtk.DrawingArea()
         self.canvas.set_hexpand(True)
         self.canvas.set_vexpand(True)
+        self.canvas.set_size_request(500, 500)   # minimum so grid cells never vanish
         self.canvas.add_events(
             Gdk.EventMask.BUTTON_PRESS_MASK |
             Gdk.EventMask.POINTER_MOTION_MASK |
             Gdk.EventMask.LEAVE_NOTIFY_MASK
         )
-        self.canvas.set_app_paintable(True)
+        # NOTE: do NOT use set_app_paintable(True) — in GTK3/Sugar that makes the
+        # DrawingArea composite against the desktop background (transparent canvas).
         self.canvas.connect("draw", self._draw_cb)
+        self.canvas.connect("realize", lambda w: w.queue_draw())
         self.canvas.connect("button-press-event", self._canvas_click_cb)
         self.canvas.connect("motion-notify-event", self._canvas_motion_cb)
         self.canvas.connect("leave-notify-event", self._canvas_leave_cb)
@@ -548,7 +459,7 @@ class GraphIt(activity.Activity):
     def _task_clicked_cb(self, btn, challenge):
         """Load the chosen challenge and switch to playing view."""
         self.current_challenge = challenge
-        self.plotted_points = []
+        self.history.clear()
         self.success_label.hide()
 
         self.playing_title.set_text(challenge["name"])
@@ -563,7 +474,7 @@ class GraphIt(activity.Activity):
 
     def _back_to_tasks_cb(self, btn):
         self.current_challenge = None
-        self.plotted_points = []
+        self.history.clear()
         self.canvas.queue_draw()
         self.stack.set_visible_child_name("tasks")
 
@@ -573,96 +484,145 @@ class GraphIt(activity.Activity):
         alloc = widget.get_allocation()
         W, H = alloc.width, alloc.height
 
-        cells = 10
-        grid_size = min(W, H) * 0.88
-        step = grid_size / (cells * 2)
+        cells = GRID_CELLS
+        # logic layer computes the correct step size
+        step = compute_step(W, H, cells)
         cx, cy = W / 2, H / 2
 
-        self._step = step
-        self._cx = cx
-        self._cy = cy
+        # Active grid bounds
+        gx0 = cx - cells * step
+        gx1 = cx + cells * step
+        gy0 = cy - cells * step
+        gy1 = cy + cells * step
+
+        # Cache for mouse event handlers (screen_to_grid needs these)
+        self._step  = step
+        self._cx    = cx
+        self._cy    = cy
         self._cells = cells
 
         def to_screen(x, y):
-            return cx + x * step, cy - y * step
+            return grid_to_screen(x, y, cx, cy, step)
 
-        # ── Background ────────────────────────────────────────
-        cr.set_source_rgb(0.04, 0.06, 0.12)
+        # ══════════════════════════════════════════════════════════════════════
+        # 1. BACKGROUND
+        # ══════════════════════════════════════════════════════════════════════
+        cr.set_source_rgb(0.08, 0.12, 0.22)
         cr.paint()
 
-        # ── Minor grid lines ──────────────────────────────────
-        cr.set_line_width(0.4)
+        # Slightly lighter panel behind the active grid area
+        cr.set_source_rgb(0.11, 0.17, 0.30)
+        cr.rectangle(gx0, gy0, gx1 - gx0, gy1 - gy0)
+        cr.fill()
+
+        # ══════════════════════════════════════════════════════════════════════
+        # 2. GRID LINES — span the FULL canvas so the graph feels infinite
+        #    Minor lines (every 1 unit) inside grid bounds only to keep it clean
+        # ══════════════════════════════════════════════════════════════════════
+        cr.set_line_width(1.0)
         for i in range(-cells, cells + 1):
-            cr.set_source_rgba(0.2, 0.3, 0.5, 0.25)
-            x = cx + i * step
-            cr.move_to(x, cy - cells * step)
-            cr.line_to(x, cy + cells * step)
+            # skip 0 — drawn as bold axis below
+            if i == 0:
+                continue
+
+            # vertical line — full canvas height
+            lx = cx + i * step
+            cr.set_source_rgba(0.35, 0.52, 0.78, 0.70)
+            cr.move_to(lx, 0)
+            cr.line_to(lx, H)
             cr.stroke()
-            y = cy + i * step
-            cr.move_to(cx - cells * step, y)
-            cr.line_to(cx + cells * step, y)
+
+            # horizontal line — full canvas width
+            ly = cy - i * step
+            cr.move_to(0, ly)
+            cr.line_to(W, ly)
             cr.stroke()
 
-        # ── Axes ──────────────────────────────────────────────
-        cr.set_line_width(2)
-        cr.set_source_rgba(0.55, 0.7, 0.9, 1.0)
-        cr.move_to(cx - cells * step, cy)
-        cr.line_to(cx + cells * step, cy)
-        cr.stroke()
-        cr.move_to(cx, cy - cells * step)
-        cr.line_to(cx, cy + cells * step)
+        # ══════════════════════════════════════════════════════════════════════
+        # 3. AXES — bold, run the full canvas width/height
+        # ══════════════════════════════════════════════════════════════════════
+        cr.set_line_width(2.2)
+        cr.set_source_rgba(0.60, 0.78, 1.0, 1.0)
+
+        # x-axis  (horizontal, at cy)
+        cr.move_to(0, cy)
+        cr.line_to(W, cy)
         cr.stroke()
 
-        # ── Arrows ────────────────────────────────────────────
-        ax = cx + cells * step
-        ay = cy - cells * step
-        cr.set_source_rgba(0.55, 0.7, 0.9, 1.0)
-        cr.move_to(ax, cy); cr.line_to(ax-9, cy-5); cr.line_to(ax-9, cy+5)
+        # y-axis  (vertical, at cx)
+        cr.move_to(cx, 0)
+        cr.line_to(cx, H)
+        cr.stroke()
+
+        # ── Arrow heads ───────────────────────────────────────
+        cr.set_source_rgba(0.60, 0.78, 1.0, 1.0)
+        # right arrowhead on x-axis
+        cr.move_to(W - 2, cy)
+        cr.line_to(W - 12, cy - 6)
+        cr.line_to(W - 12, cy + 6)
         cr.close_path(); cr.fill()
-        cr.move_to(cx, ay); cr.line_to(cx-5, ay+9); cr.line_to(cx+5, ay+9)
+        # up arrowhead on y-axis
+        cr.move_to(cx, 2)
+        cr.line_to(cx - 6, 12)
+        cr.line_to(cx + 6, 12)
         cr.close_path(); cr.fill()
 
-        # ── Axis labels ───────────────────────────────────────
-        cr.set_source_rgba(0.7, 0.85, 1.0, 0.9)
+        # ── Axis letter labels ────────────────────────────────
+        cr.set_source_rgba(0.75, 0.90, 1.0, 0.95)
+        cr.select_font_face("Sans", 0, 1)   # bold
+        cr.set_font_size(15)
+        cr.move_to(W - 22, cy - 8);  cr.show_text("x")
+        cr.move_to(cx + 8,  14);     cr.show_text("y")
+
+        # ══════════════════════════════════════════════════════════════════════
+        # 4. TICK MARKS + NUMBER LABELS  (every 2 units, skip 0)
+        # ══════════════════════════════════════════════════════════════════════
         cr.select_font_face("Sans", 0, 0)
-        cr.set_font_size(14)
-        cr.move_to(ax + 5, cy + 5); cr.show_text("x")
-        cr.move_to(cx + 7, ay - 5); cr.show_text("y")
+        cr.set_font_size(10)
+        cr.set_source_rgba(0.55, 0.72, 0.90, 0.90)
 
-        # ── Number labels on axes ─────────────────────────────
-        cr.set_font_size(9)
-        cr.set_source_rgba(0.45, 0.6, 0.78, 0.8)
         for i in range(-cells, cells + 1):
             if i == 0:
                 continue
-            # X axis numbers
-            tx = cx + i * step
-            cr.move_to(tx, cy + 3); cr.line_to(tx, cy - 3); cr.stroke()
+            lx = cx + i * step
+            ly = cy - i * step
+
+            # tick on x-axis
+            cr.set_line_width(1.2)
+            cr.move_to(lx, cy - 4); cr.line_to(lx, cy + 4); cr.stroke()
+
+            # tick on y-axis
+            cr.move_to(cx - 4, ly); cr.line_to(cx + 4, ly); cr.stroke()
+
             if i % 2 == 0:
                 lbl = str(i)
                 ext = cr.text_extents(lbl)
-                cr.move_to(tx - ext.width / 2, cy + 14)
+                # x-axis number below tick
+                cr.move_to(lx - ext.width / 2, cy + 16)
                 cr.show_text(lbl)
-            # Y axis numbers
-            ty = cy - i * step
-            cr.move_to(cx - 3, ty); cr.line_to(cx + 3, ty); cr.stroke()
-            if i % 2 == 0:
-                lbl = str(i)
-                ext = cr.text_extents(lbl)
-                cr.move_to(cx - ext.width - 7, ty + ext.height / 2)
+                # y-axis number left of tick
+                cr.move_to(cx - ext.width - 8, ly + ext.height / 2)
                 cr.show_text(lbl)
 
-        # ── Origin label ──────────────────────────────────────
-        cr.set_font_size(9)
-        cr.set_source_rgba(0.45, 0.6, 0.78, 0.6)
-        cr.move_to(cx + 4, cy + 13)
+        # ── Origin "0" ────────────────────────────────────────
+        cr.set_font_size(10)
+        cr.set_source_rgba(0.50, 0.65, 0.82, 0.80)
+        cr.move_to(cx + 5, cy + 14)
         cr.show_text("0")
 
-        # ── Ghost shape (target) ──────────────────────────────
+        # ── Grid border (thin bright rectangle around active area) ───────────
+        cr.set_line_width(1.0)
+        cr.set_source_rgba(0.40, 0.55, 0.80, 0.45)
+        cr.rectangle(gx0, gy0, gx1 - gx0, gy1 - gy0)
+        cr.stroke()
+
+        # ══════════════════════════════════════════════════════════════════════
+        # 5. GHOST SHAPE (challenge target)  — faint orange guide
+        # ══════════════════════════════════════════════════════════════════════
         if self.current_challenge and self.current_challenge["points"]:
             ghost = self.current_challenge["points"]
             cr.set_line_width(1.5)
-            cr.set_source_rgba(0.9, 0.5, 0.2, 0.2)
+            cr.set_source_rgba(0.9, 0.5, 0.2, 0.25)
             sx, sy = to_screen(*ghost[0])
             cr.move_to(sx, sy)
             for p in ghost[1:]:
@@ -671,65 +631,93 @@ class GraphIt(activity.Activity):
             cr.stroke()
             for p in ghost:
                 sx, sy = to_screen(*p)
-                cr.set_source_rgba(0.9, 0.5, 0.2, 0.22)
-                cr.arc(sx, sy, 5, 0, 2 * math.pi); cr.fill()
+                cr.set_source_rgba(0.95, 0.55, 0.20, 0.30)
+                cr.arc(sx, sy, 6, 0, 2 * math.pi); cr.fill()
 
-        # ── Connected lines ───────────────────────────────────
-        if self.connect_mode and len(self.plotted_points) >= 2:
+        # ══════════════════════════════════════════════════════════════════════
+        # 6. CONNECTED LINES between plotted points
+        # ══════════════════════════════════════════════════════════════════════
+        if self.connect_mode and len(self.history) >= 2:
             cr.set_line_width(2.5)
-            cr.set_source_rgba(0.35, 0.82, 0.60, 0.9)
-            sx, sy = to_screen(*self.plotted_points[0])
+            cr.set_source_rgba(0.35, 0.85, 0.65, 0.95)
+            sx, sy = to_screen(*self.history[0])
             cr.move_to(sx, sy)
-            for p in self.plotted_points[1:]:
+            for p in self.history[1:]:
                 sx, sy = to_screen(*p)
                 cr.line_to(sx, sy)
             cr.stroke()
 
-        # ── Hover snap preview ────────────────────────────────
+        # ══════════════════════════════════════════════════════════════════════
+        # 7. HOVER SNAP INDICATOR
+        # ══════════════════════════════════════════════════════════════════════
         if self.hover_point:
             hx, hy = to_screen(*self.hover_point)
-            cr.set_source_rgba(1.0, 0.84, 0.0, 0.45)
-            cr.arc(hx, hy, 8, 0, 2 * math.pi); cr.fill()
+            # outer glow ring
+            cr.set_source_rgba(1.0, 0.84, 0.0, 0.20)
+            cr.arc(hx, hy, 14, 0, 2 * math.pi); cr.fill()
+            # inner dot
+            cr.set_source_rgba(1.0, 0.84, 0.0, 0.55)
+            cr.arc(hx, hy, 7, 0, 2 * math.pi); cr.fill()
+            # coordinate label
             cr.set_font_size(11)
-            cr.set_source_rgba(1.0, 0.84, 0.0, 0.9)
-            cr.move_to(hx + 11, hy - 5)
+            cr.set_source_rgba(1.0, 0.84, 0.0, 0.95)
+            cr.move_to(hx + 13, hy - 5)
             cr.show_text(f"({self.hover_point[0]}, {self.hover_point[1]})")
 
-        # ── Plotted points ────────────────────────────────────
+        # ══════════════════════════════════════════════════════════════════════
+        # 8. PLOTTED POINTS
+        # ══════════════════════════════════════════════════════════════════════
         COLORS = [
-            (0.91, 0.27, 0.37),
-            (0.25, 0.85, 0.63),
-            (0.99, 0.82, 0.10),
-            (0.38, 0.55, 0.99),
-            (0.96, 0.49, 0.0),
-            (0.8,  0.3,  0.9),
+            (0.91, 0.27, 0.37),   # red
+            (0.25, 0.85, 0.63),   # green
+            (0.99, 0.82, 0.10),   # yellow
+            (0.38, 0.55, 0.99),   # blue
+            (0.96, 0.49, 0.00),   # orange
+            (0.80, 0.30, 0.90),   # purple
         ]
-        for idx, (px, py) in enumerate(self.plotted_points):
+        n = len(self.history)
+        for idx, (px, py) in enumerate(self.history):
             sx, sy = to_screen(px, py)
-            c = COLORS[idx % len(COLORS)]
-            cr.set_source_rgba(*c, 0.2)
-            cr.arc(sx, sy, 13, 0, 2 * math.pi); cr.fill()
+            is_last = (idx == n - 1)
+
+            # choose colour: blue for latest, cycle for others
+            if is_last:
+                c = (0.20, 0.60, 1.00)
+            else:
+                c = COLORS[idx % len(COLORS)]
+
+            # outer glow
+            cr.set_source_rgba(*c, 0.25)
+            cr.arc(sx, sy, 15, 0, 2 * math.pi); cr.fill()
+
+            # main circle
             cr.set_source_rgb(*c)
             cr.arc(sx, sy, 7, 0, 2 * math.pi); cr.fill()
+
+            # white border
+            cr.set_source_rgba(1, 1, 1, 0.9)
+            cr.set_line_width(1.2)
+            cr.arc(sx, sy, 7, 0, 2 * math.pi); cr.stroke()
+
+            # sequence number inside circle
             cr.set_source_rgb(1, 1, 1)
             cr.set_font_size(8)
             lbl = str(idx + 1)
             ext = cr.text_extents(lbl)
-            cr.move_to(sx - ext.width/2, sy + ext.height/2)
+            cr.move_to(sx - ext.width / 2, sy + ext.height / 2)
             cr.show_text(lbl)
+
+            # coordinate label outside circle
             cr.set_font_size(10)
-            cr.set_source_rgba(0.7, 0.9, 1.0, 0.85)
-            cr.move_to(sx + 10, sy - 5)
+            cr.set_source_rgba(0.75, 0.92, 1.0, 0.90)
+            cr.move_to(sx + 11, sy - 6)
             cr.show_text(f"({px}, {py})")
 
     # ── Coordinate utilities ──────────────────────────────────────────────────
 
     def _screen_to_grid(self, sx, sy):
-        gx = round((sx - self._cx) / self._step)
-        gy = round(-(sy - self._cy) / self._step)
-        gx = max(-self._cells, min(self._cells, gx))
-        gy = max(-self._cells, min(self._cells, gy))
-        return gx, gy
+        """Delegate to logic.screen_to_grid using cached canvas metrics."""
+        return screen_to_grid(sx, sy, self._cx, self._cy, self._step, self._cells)
 
     # ── Canvas events ─────────────────────────────────────────────────────────
 
@@ -760,20 +748,23 @@ class GraphIt(activity.Activity):
     # ── Point management ─────────────────────────────────────────────────────
 
     def _add_point(self, x, y):
-        self.plotted_points.append((x, y))
+        self.history.add(x, y)
         self._refresh_points_list()
         self.canvas.queue_draw()
         self._check_completion()
 
     def _manual_plot_cb(self, widget):
+        raw_x = self.x_entry.get_text().strip()
+        raw_y = self.y_entry.get_text().strip()
         try:
-            x = int(self.x_entry.get_text().strip())
-            y = int(self.y_entry.get_text().strip())
+            x, y = int(raw_x), int(raw_y)
         except ValueError:
             self._flash_hint("⚠ Please enter whole numbers only")
             return
-        if abs(x) > self._cells or abs(y) > self._cells:
-            self._flash_hint(f"⚠ Values must be between -{self._cells} and {self._cells}")
+        # logic layer validates range
+        ok, reason = validate_coord(x, y, self._cells)
+        if not ok:
+            self._flash_hint(f"⚠ {reason}")
             return
         self.x_entry.set_text("")
         self.y_entry.set_text("")
@@ -786,13 +777,12 @@ class GraphIt(activity.Activity):
         GLib.timeout_add(2500, lambda: self.playing_hint.set_text(orig) or False)
 
     def _undo_cb(self, btn):
-        if self.plotted_points:
-            self.plotted_points.pop()
-            self._refresh_points_list()
-            self.canvas.queue_draw()
+        self.history.undo()
+        self._refresh_points_list()
+        self.canvas.queue_draw()
 
     def _clear_cb(self, btn):
-        self.plotted_points = []
+        self.history.clear()
         self.success_label.hide()
         self._refresh_points_list()
         self.canvas.queue_draw()
@@ -804,7 +794,7 @@ class GraphIt(activity.Activity):
     def _refresh_points_list(self):
         for child in self.points_list_box.get_children():
             self.points_list_box.remove(child)
-        for idx, (x, y) in enumerate(self.plotted_points):
+        for idx, (x, y) in enumerate(self.history):
             lbl = Gtk.Label(label=f"  {idx+1}.  ({x:>3}, {y:>3})")
             lbl.get_style_context().add_class("point-row")
             lbl.set_xalign(0)
@@ -814,12 +804,10 @@ class GraphIt(activity.Activity):
     # ── Completion check ──────────────────────────────────────────────────────
 
     def _check_completion(self):
-        if not self.current_challenge or not self.current_challenge["points"]:
+        # logic layer does the set-intersection math
+        matched, total = check_completion(self.history, self.current_challenge)
+        if total == 0:
             return
-        target = set(map(tuple, self.current_challenge["points"]))
-        plotted = set(self.plotted_points)
-        matched = len(plotted & target)
-        total = len(target)
         if matched == total:
             self.success_label.set_markup(
                 f'<span color="#06d6a0" size="large">⭐ Perfect! All {total} points matched!</span>'
@@ -863,7 +851,7 @@ class GraphIt(activity.Activity):
             with open(file_path, "r") as f:
                 data = json.load(f)
             state = data.get("state", {})
-            self.plotted_points = [tuple(p) for p in state.get("points", [])]
+            self.history.load(state.get("points", []))
             self.connect_mode = state.get("connect_mode", False)
             self.connect_toggle.set_active(self.connect_mode)
             cat = state.get("category")
@@ -873,10 +861,8 @@ class GraphIt(activity.Activity):
                     if ch["name"] == task_name:
                         self._category_clicked_cb(None, cat)
                         self._task_clicked_cb(None, ch)
-                        # restore points after load (task load clears them)
-                        self.plotted_points = [
-                            tuple(p) for p in state.get("points", [])
-                        ]
+                        # restore points after task_clicked_cb clears them
+                        self.history.load(state.get("points", []))
                         self._refresh_points_list()
                         self.canvas.queue_draw()
                         break
@@ -890,7 +876,7 @@ class GraphIt(activity.Activity):
                 "metadata": {"activity": "org.sugarlabs.GraphIt",
                               "timestamp": time.time()},
                 "state": {
-                    "points": list(self.plotted_points),
+                    "points": self.history.as_list(),
                     "connect_mode": self.connect_mode,
                     "category": getattr(self, "current_category", None),
                     "task_name": (self.current_challenge["name"]
@@ -901,4 +887,3 @@ class GraphIt(activity.Activity):
                 json.dump(data, f, indent=2)
         except Exception as e:
             print(f"GraphIt write_file error: {e}")
-
