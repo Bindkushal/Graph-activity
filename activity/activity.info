@@ -7,5 +7,5 @@ exec = sugar-activity3 activity.GraphIt
 icon = activity-graphit
 license = GPLv3+
 tags = math;game;graph;coordinates;geometry;learning
-url = https://github.com/Bindkushal/graph-activity
-repository = https://github.com/Bindkushal/graph-activity.git
+url = https://github.com/Bindkushal/Graph.activity
+repository = https://github.com/Bindkushal/Graph.activity.git
